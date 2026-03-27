@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "RedskyBot": {
+      "commandName": "Project"
+    },
+    "Container (Dockerfile)": {
+      "commandName": "Docker"
+    }
+  }
+}

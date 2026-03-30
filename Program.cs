@@ -40,15 +40,15 @@ async Task OnMessage(Message msg, UpdateType type)
     {
         switch (msg.Text)
         {
-            default: await bot.SendMessage(msg.Chat.Id, "Commande non reconnu"); break;
+            default: await bot.SendMessage(msg.Chat.Id, "Commande non reconnu, faire /help pour plus de commande"); break;
             case string s when s.StartsWith("/add"):
 
                 string[] texts = msg.Text.Split(' ');
-                if (texts.Any(text => text.StartsWith("magnet:?")))
+                if (texts.Any(text => text.StartsWith("magnet:?") || text.EndsWith(".torrent")))
                 {
                     try
                     {
-                        await qbService.AddMagnet(texts.FirstOrDefault(text => text.StartsWith("magnet:?")));
+                        await qbService.AddTorrent(texts.FirstOrDefault(text => text.StartsWith("magnet:?") || text.EndsWith(".torrent")));
                         await bot.SendMessage(msg.Chat.Id, "Torrent ajouté à qBittorrent");
                         break;
                     }
@@ -63,6 +63,19 @@ async Task OnMessage(Message msg, UpdateType type)
                     await bot.SendMessage(msg.Chat.Id, $"Contenu de la commande non valide \"{msg.Text.Replace("/add", "")}\"");
                     break;
                 }
+            case string s when s.StartsWith("/help"):
+                await bot.SendMessage(msg.Chat.Id, "/add <magnet> ou fichier .torrent pour ajouter un torrent\n/list renvoie les torrents en cours et leurs états" +
+                    "/remove <hashe|hashe|...> ou all pour tous les supprimer, ajouter true à la fin pour suppression de la data déjà téléchargé\n");
+                break;
+            case string s when s.StartsWith("/list"):
+                string text = "List des torrents \n";
+                Dictionary<string, string> dico = await qbService.ListTorrent();
+                foreach (KeyValuePair<string, string> dic in dico)
+                {
+                    text = text + $"--------------------\nHash : ${dic.Key}\nName : ${dic.Value}\n";
+                }
+                await bot.SendMessage(msg.Chat.Id, text);
+                break;
         }
     }
     else

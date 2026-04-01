@@ -43,38 +43,54 @@ async Task OnMessage(Message msg, UpdateType type)
             default: await bot.SendMessage(msg.Chat.Id, "Commande non reconnu, faire /help pour plus de commande"); break;
             case string s when s.StartsWith("/add"):
 
-                string[] texts = msg.Text.Split(' ');
-                if (texts.Any(text => text.StartsWith("magnet:?") || text.EndsWith(".torrent")))
+                if (msg.Document != null)
                 {
-                    try
-                    {
-                        await qbService.AddTorrent(texts.FirstOrDefault(text => text.StartsWith("magnet:?") || text.EndsWith(".torrent")));
-                        await bot.SendMessage(msg.Chat.Id, "Torrent ajouté à qBittorrent");
-                        break;
-                    }
-                    catch (Exception ex)
-                    {
-                        await bot.SendMessage(msg.Chat.Id, $"Erreur: {ex.Message}");
-                        break;
-                    }
-                }
-                else
-                {
-                    await bot.SendMessage(msg.Chat.Id, $"Contenu de la commande non valide \"{msg.Text.Replace("/add", "")}\"");
+                    string path = Path.Combine("downloads/", msg.Document.FileName);
+                    string fileId = msg.Document.FileId;
+                    await using FileStream stream = File.Create(path);
+                    await bot.GetInfoAndDownloadFile(fileId, stream);
+                    await qbService.AddTorrent(path, false);
                     break;
                 }
+
+                string[] texts = msg.Text.Split(' ');
+                foreach (string text in texts)
+                {
+                    if (text.StartsWith("magnet:?") || text.EndsWith(".torrent"))
+                    {
+                        try
+                        {
+                            await qbService.AddTorrent(text, true);
+                            await bot.SendMessage(msg.Chat.Id, "Torrent ajouté à qBittorrent");
+                        }
+                        catch (Exception ex)
+                        {
+                            await bot.SendMessage(msg.Chat.Id, $"Erreur: {ex.Message}");
+                        }
+                    }
+                    else
+                    {
+                        await bot.SendMessage(msg.Chat.Id, $"Contenu de la commande non valide \"{msg.Text.Replace("/add", "")}\"");
+                    }
+                }
+                break;
             case string s when s.StartsWith("/help"):
-                await bot.SendMessage(msg.Chat.Id, "/add <magnet> ou fichier .torrent pour ajouter un torrent\n/list renvoie les torrents en cours et leurs états" +
-                    "/remove <hashe|hashe|...> ou all pour tous les supprimer, ajouter true à la fin pour suppression de la data déjà téléchargé\n");
+                await bot.SendMessage(msg.Chat.Id, "/add <magnet> ou fichier .torrent pour ajouter un torrent\n\n/list renvoie les torrents en cours et leurs états" +
+                    "\n\n/remove <hashe|hashe|...> ou all pour tous les supprimer, ajouter true à la fin pour suppression de la data déjà téléchargé\n");
                 break;
             case string s when s.StartsWith("/list"):
-                string text = "List des torrents \n";
                 Dictionary<string, string> dico = await qbService.ListTorrent();
+                if (dico.Count == 0)
+                {
+                    await bot.SendMessage(msg.Chat.Id, "Aucun torrent");
+                    break;
+                }
+                string textList = "List des torrents :\n";
                 foreach (KeyValuePair<string, string> dic in dico)
                 {
-                    text = text + $"--------------------\nHash : ${dic.Key}\nName : ${dic.Value}\n";
+                    textList = textList + $"--------------------\nHash : {dic.Key}\nName : {dic.Value}\n";
                 }
-                await bot.SendMessage(msg.Chat.Id, text);
+                await bot.SendMessage(msg.Chat.Id, textList);
                 break;
         }
     }
